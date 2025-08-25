@@ -34,7 +34,7 @@ class BaseCharacter:
 class Player(BaseCharacter):
 
     def __init__(self, level, experience, room, stat_points, char_class):
-        # Extra player-specific fields
+        # Playey bla bla bla
         self.level = level
         self.experience = experience
         self.room = room
@@ -85,7 +85,7 @@ class Player(BaseCharacter):
         passive.apply(self)  # Apply it immediately
 
     def check_for_passives(self):
-        # Check for Overcrit passive
+        # if crit more and 100 then add passive: Overcrit
         if self.crit_chance > 100:
             from passives import Overcrit
             self.add_passive(Overcrit())

@@ -169,8 +169,7 @@ def combat(player, monster):
             return "Player defeated"
 
 def CreateCharacter():
-    # Create a new player starting at level 1
-    time.sleep(1)
+    time.sleep(0.5)
     clear()
     
     print("╔══════════════════════════════╗")
