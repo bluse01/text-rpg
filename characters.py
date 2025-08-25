@@ -14,6 +14,7 @@ class BaseCharacter:
     def calc_damage(self, target):
             crit_roll = random.randint(0, 100)
             is_crit = crit_roll <= self.crit_chance
+            
             if is_crit:
                 # Critical hit
                 damage = self.base_damage * self.crit_multiplier - target.armor
@@ -25,21 +26,27 @@ class BaseCharacter:
 
             return round(damage, 2), is_crit
     
-    def calc_overcharge(self):
-            damage = self.base_damage * 3
+    def calc_overcharge(self, target):
+            damage = self.base_damage * 3 - (target.armor / 2)
 
-            return damage
+            return round(damage, 2)
             
 class Player(BaseCharacter):
 
-    def __init__(self, level=1, experience=0, room=1, stat_points=0, name="Player"):
+    def __init__(self, level, experience, room, stat_points, char_class):
         # Extra player-specific fields
         self.level = level
         self.experience = experience
         self.room = room
         self.stat_points = stat_points
-        self.name = name
+        self.char_class = char_class
         self.passives = []
+
+        # player class values
+        self.double_strike_chance = 0
+        self.life_steal = 0
+        self.overcharge_boost = 1.0
+        self.toughness_modfier = 0
 
         self.bonus_damage = 0
         self.bonus_health = 0
@@ -48,10 +55,25 @@ class Player(BaseCharacter):
         self.bonus_crit_multiplier = 0
 
         # Initialize with temporary stats (will recalc immediately)
-        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, name=name)  
+        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, name=None)  
 
         self.recalc_stats()
         self.current_health = self.max_health
+
+        if self.char_class == "Warrior":
+            self.bonus_health += 15  # +15% health
+            self.bonus_armor += 15   # +15% armor
+            self.toughness_modfier += 0.90
+        elif self.char_class == "Mage":
+            self.bonus_damage += 10  # +10% damage
+            self.overcharge_boost = 2  # +100% Overcharge damage Boost
+        elif self.char_class == "Assassin":
+            self.bonus_crit_chance += 15  # +15% crit chance
+            self.bonus_crit_multiplier += 20  # +20% crit multiplier bonus
+            self.double_strike_chance += 10  # 10% chance to attack twice
+        elif self.char_class == "Vampire":
+            self.bonus_health += 10  # +10% health
+            self.life_steal = 0.1  # 10% life steal 
 
     def add_passive(self, passive):
         # Check if we already have this passive type
@@ -70,18 +92,26 @@ class Player(BaseCharacter):
  
     def recalc_stats(self):
         # Calculate base stats first
-        self.base_damage = 13 * self.level
+        self.base_damage = 10 * self.level
         self.max_health = 100 * self.level
         self.armor = 5 + (0.1 * self.level)
-        self.crit_chance = 1 + (0.1 * self.level)
-        self.crit_multiplier = 1 + (0.01 * self.level)
+        self.crit_chance = 1 + (0.5 * self.level)
+        self.crit_multiplier = 1 + (0.05 * self.level)
 
-        # Apply bonuses
-        self.base_damage = round(self.base_damage + self.bonus_damage, 2)
-        self.max_health = round(self.max_health + self.bonus_health, 2)
-        self.armor = round(self.armor + self.bonus_armor, 2)
+        # Apply bonuses (convert percentage bonuses to multipliers)
+        self.base_damage = round(self.base_damage * (1 + self.bonus_damage/100), 2)
+        self.max_health = round(self.max_health * (1 + self.bonus_health/100), 2)
+        self.armor = round(self.armor * (1 + self.bonus_armor/100), 2)
         self.crit_chance = round(self.crit_chance + self.bonus_crit_chance, 2)
-        self.crit_multiplier = round(self.crit_multiplier + self.bonus_crit_multiplier, 2)
+        # Crit multiplier is now multiplicative: base * (1 + bonus/100)
+        self.crit_multiplier = round(self.crit_multiplier * (1 + self.bonus_crit_multiplier/100), 2)
+
+        if self.char_class == "Assassin":
+            self.double_strike_chance = 10 + (10 * self.level)
+            if self.double_strike_chance > 100:
+                self.double_strike_chance = 100
+        elif self.char_class == "Vampire":
+            self.life_steal = 0.1 + (0.02 * self.level)
 
         self.check_for_passives()
 
@@ -109,13 +139,6 @@ class Player(BaseCharacter):
             # Each point increases crit chance by 2%
             self.bonus_crit_chance += points * 2
 
-        elif stat == "crit_multiplier":
-            # Each point increases crit multiplier by 1%
-            self.bonus_crit_multiplier += points * 1
-            # ensure crit multiplier does not exceed 3x
-            if self.crit_multiplier + self.bonus_crit_multiplier > 3:
-                self.bonus_crit_multiplier = 3 - self.crit_multiplier
-            
         else:
             print("Invalid stat.")
             return

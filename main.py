@@ -7,6 +7,10 @@ from characters import Player, Monster, random
 debug_mode = False
 player = None
 
+# (next time for me) figure out what math/balanced goes into stat (maybe)
+# add class like abilitys in combat (must) working on it
+# rebalance monsters to strong at start? (maybe)
+
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
 
@@ -30,12 +34,13 @@ def start():
         time.sleep(1)
         exit()
     elif choice.lower() == "debug":
+        # entering debug mode
         print("Entering debug mode...")
         print("Creating a debug character...")
         print("Enter level for debug character (default is 1): ")
-        level_input = input("> ") # Level input is currently not used
+        level_input = input("> ")
         print("Enter room for debug character (default is 1): ")
-        rm_input = input("> ")  # Room input is currently not used
+        rm_input = input("> ")
         if level_input.isdigit():
             level = int(level_input)
         else:
@@ -75,7 +80,10 @@ def combat(player, monster):
         print(f"\n--- Combat Turn {turn} ---")
         print(f"You'r Health: {colored(round(player.current_health, 2), 'green')} | Mana: {colored(player_mana, 'blue')}")
         print(f"{monster.name}'s Health: {colored(round(monster.current_health, 2), 'yellow')}")
-        print("1. Attack  2. Defend  3. Overcharge Attack (Cost 4 mana)")
+        if player.char_class == "Mage":
+            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 6 mana)")
+        else:
+            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 4 mana)")
         choice = input("> ")
 
         # ---- Player Action ----
@@ -86,22 +94,54 @@ def combat(player, monster):
                 print(f"You land a {colored('critical hit!', 'red')} dealing {colored(damage, 'red')} damage!")
             else:
                 print(f"You deal {colored(damage, 'yellow')} damage.")
-            player_mana += 2
+
+            if player.char_class == "Vampire":
+                heal_amount = damage * player.life_steal
+                player.current_health = min(player.max_health, player.current_health + heal_amount)
+                print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
+
+            if player.char_class == "Assassin" and random.randint(1, 100) <= player.double_strike_chance:
+                damage2, is_crit2 = player.calc_damage(monster)
+                monster.current_health -= damage2
+                if is_crit2:
+                    print(f"{colored('Double Strike!', 'cyan')} You land a {colored('critical hit!', 'red')} dealing {colored(damage, 'red')} damage!")
+                else:
+                    print(f"{colored('Double Strike!', 'cyan')} You deal {colored(damage, 'yellow')} damage.")
+            
+            if player.char_class == "Mage":
+               player_mana += 4 
+            else:
+                player_mana += 2
 
         elif choice == "2":
             print("You brace yourself, halving the next attack.")
             is_defending = True
-            player_mana += 1
+            if player.char_class == "Mage":
+                player_mana += 2
+            else:
+                player_mana += 1
 
         elif choice == "3":
-            if player_mana >= 4:
-                damage = player.calc_overcharge()
+            if player_mana >= 6 and player.char_class == "Mage":
+                damage = player.calc_overcharge(monster)
+                # boost damage based on multiplier for mage class
+                damage = damage * player.overcharge_boost
                 monster.current_health -= damage
-                print(f"You unleash an {colored('Overcharge Attack!', 'red')} dealing {colored(damage, 'red')} damage!")
-                player_mana -= 4
+                print(f"You unleash an {colored('MEGA Overcharge Attack!', 'cyan')} dealing {colored(damage, 'red')} damage!")
             else:
-                print("Not enough mana for Overcharge Attack!")
-                continue  # skip to retry input
+                if player_mana >= 4:
+                    damage = player.calc_overcharge(monster)
+                    monster.current_health -= damage
+                    print(f"You unleash an {colored('Overcharge Attack!', 'red')} dealing {colored(damage, 'red')} damage!")
+                    player_mana -= 4
+                else:
+                    print("Not enough mana for Overcharge Attack!")
+                    continue  # skip to retry input
+
+            if player.char_class == "Vampire":
+                heal_amount = damage * player.life_steal
+                player.current_health = min(player.max_health, player.current_health + heal_amount)
+                print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
         turn += 1
 
         if monster.current_health <= 0:
@@ -109,6 +149,10 @@ def combat(player, monster):
 
         # ---- Monster Action ----
         damage, is_crit = monster.calc_damage(player)
+        
+        if player.char_class == "Warrior":
+            damage = round(damage * player.toughness_modfier, 2)
+
         if is_defending:
             damage = damage / 2
             is_defending = False  # reset defense
@@ -126,7 +170,59 @@ def combat(player, monster):
 
 def CreateCharacter():
     # Create a new player starting at level 1
-     return Player(level=1, experience=0, room=1, stat_points=0, name="Player")
+    time.sleep(1)
+    clear()
+    
+    print("╔══════════════════════════════╗")
+    print("║       CHOOSE YOUR CLASS      ║")
+    print("╚══════════════════════════════╝")
+    print()
+    print("1. Warrior - The mighty tank")
+    print("2. Mage    - Master of arcane arts") 
+    print("3. Assassin- Silent and deadly")
+    print("4. Vampire - Eternal night hunter")
+    print()
+    
+    choice = input("Enter your choice (1-4): ").strip()
+    
+    class_descriptions = {
+        "1": {
+            "name": "Warrior",
+            "bonus": "Toughness (increased armor)",
+            "stats": "+15% Health, +15% Armor"
+        },
+        "2": {
+            "name": "Mage", 
+            "bonus": "Magic Overcharge (Overcharge deals more damage)",
+            "stats": "+10% Damage, +50% Mana gain"
+        },
+        "3": {
+            "name": "Assassin",
+            "bonus": "Double Strike (Chance to attack twice)",
+            "stats": "+15% Crit Chance, +10% Crit Multiplier"
+        },
+        "4": {
+            "name": "Vampire",
+            "bonus": f"Life Steal (Heal of damage dealt)",
+            "stats": f"+10% Health, +5% Life Steal"
+        }
+    }
+    
+    if choice in class_descriptions:
+        selected = class_descriptions[choice]
+        print(f"\n╔{'═'*40}╗")
+        print(f"║ You have chosen: {selected['name']:^20}  ║")
+        print(f"╚{'═'*40}╝")
+        print(f"Class Bonus: {selected['bonus']}")
+        print(f"Starting Stats: {selected['stats']}")
+        input("Press Enter to continue...")
+            
+        return Player(level=1, experience=0, room=1, stat_points=0, char_class=selected['name'])
+    else:
+        print("\nInvalid choice! Defaulting to Adventurer class.")
+        time.sleep(1)
+        print("You are now an Adventurer - a jack of all trades!")
+        return Player(level=1, experience=0, room=1, stat_points=0, char_class="Adventurer")
 
 def monster_encounter(player):
     # List of possible low level monsters
@@ -233,11 +329,11 @@ def game_loop():
     def stat_allocation_menu(player):
         print("\n--- Stat Allocation Menu ---")
         print(f"You have {player.stat_points} stat points to allocate.")
-        print("1. Increase Damage (2% per point)")
-        print("2. Increase Health (2% per point)")
-        print("3. Increase Armor (2% per point)")
-        print("4. Increase Crit Chance (2% per point)")
-        print("5. Increase Crit Multiplier (1% per point)")
+        print("1. Increase Damage (+2% per point)")
+        print("2. Increase Health (+2% per point)")
+        print("3. Increase Armor (+2% per point)")
+        print("4. Increase Crit Chance (+2% per point)")
+        print("5. Increase Crit Multiplier (+5% per point)")
         print("6. Exit Stat Allocation Menu")
         choice = input("> ")
         match choice:
