@@ -33,14 +33,16 @@ class BaseCharacter:
             
 class Player(BaseCharacter):
 
-    def __init__(self, level, experience, room, stat_points, char_class):
+    def __init__(self, level, experience, room, stat_points, char_class, gold=0):
         # Player bla bla bla
         self.level = level
         self.experience = experience
         self.room = room
         self.stat_points = stat_points
         self.char_class = char_class
+        self.gold = gold
         self.passives = []
+        self.inventory = []
 
         # player class values
         self.double_strike_chance = 0
@@ -100,8 +102,8 @@ class Player(BaseCharacter):
 
         # Apply bonuses (convert percentage bonuses to multipliers)
         self.base_damage = round(self.base_damage * (1 + self.bonus_damage/100), 2)
-        self.max_health = round(self.max_health * (1 + self.bonus_health/100), 2)
-        self.armor = round(self.armor * (1 + self.bonus_armor/100), 2)
+        self.max_health = round(self.max_health * (1.5 + self.bonus_health/100), 2)
+        self.armor = round(self.armor * (1.5 + self.bonus_armor/100), 2)
         self.crit_chance = round(self.crit_chance + self.bonus_crit_chance, 2)
         # Crit multiplier is now multiplicative: base * (1 + bonus/100)
         self.crit_multiplier = round(self.crit_multiplier * (1 + self.bonus_crit_multiplier/100), 2)
@@ -157,6 +159,8 @@ class Player(BaseCharacter):
             self.experience -= self.experience_to_next_level()
             self.level_up()
             self.stat_points += 5
+            # give player 50 gold per level up
+            self.gold += 50
             print(f"You have leveled up to level {self.level}! You have {self.stat_points} stat points to spend.")
             
     def level_up(self, levels=1, heal_on_level=True):

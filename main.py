@@ -2,13 +2,15 @@ import os
 import time
 from termcolor import colored
 
+from shop import shop_menu
 from characters import Player, Monster, random
 
 debug_mode = False
 player = None
 
-# (next time for me) figure out what math/balanced goes into stat (maybe)
 # rebalance monsters to strong at start? (MUST or make player stronger)
+# working on inventory system and items
+# next boss level for each xx room
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -54,6 +56,7 @@ def start():
         player.level = level
         player.room = room
         player.stat_points = level * 5
+        player.gold = 100000
         player.recalc_stats()
         player.current_health = player.max_health
         print(f"Debug character created at level {player.level} with {player.current_health} health.")
@@ -168,7 +171,6 @@ def combat(player, monster):
             return "Player defeated"
 
 def CreateCharacter():
-    time.sleep(0.5)
     clear()
     
     print("╔══════════════════════════════╗")
@@ -367,6 +369,29 @@ def game_loop():
         clear()
         return
 
+    def player_inventory_menu(player):
+        clear()
+        print(colored("\nYour Inventory:", "cyan", attrs=["bold"]))
+        for i in range(len(player.inventory)):
+            item = player.inventory[i]
+            print(f"{i+1}. {item.name} - {item.desc}")
+        
+        print("Choose item to use!")
+        ch = int(input("> "))
+
+        if 1 <= ch <= len(player.inventory):
+            player.inventory[ch - 1].use(player)
+            player.inventory.pop(ch - 1)
+            input("> ")
+        elif ch == 0:
+            print("Existing inventory...")
+            time.sleep(1)
+            return
+        else:
+            print("invalid Choose!")
+            time.sleep(1)
+            return
+
     while True:
         if debug_mode:
             print("[DEBUG] Player Stats:", vars(player))
@@ -376,9 +401,11 @@ def game_loop():
 
         print("\n--- Main Menu ---")
         print("1. Continue with adventure")
-        print("2. Allocate stat points")
-        print("3. Rest (to full health)")
-        print("4. Exit game")
+        print("2. inventory")
+        print("3. Allocate stat points")
+        print("4. Rest (to full health)")
+        print("5. Shop")
+        print("6. Exit game")
         choice = input("> ")
 
         rm = None
@@ -387,16 +414,24 @@ def game_loop():
             print("Continuing your adventure...")
             rm = room_create(player)
         elif choice == "2":
-            stat_allocation_menu(player)
+            player_inventory_menu(player)
             clear()
             continue
         elif choice == "3":
+            stat_allocation_menu(player)
+            clear()
+            continue
+        elif choice == "4":
             player.current_health = player.max_health
             print("You have rested and restored your health to full.")
             time.sleep(1)
             clear()
             continue
-        elif choice == "4":
+        elif choice == "5":
+            clear()
+            shop_menu(player)
+            continue
+        elif choice == "6":
             print("Exiting the game. Goodbye!")
             time.sleep(1)
             exit()
@@ -432,6 +467,9 @@ def game_loop():
             else:
                 # Normal experience gain
                 exp_gain = 20 + (10 * player.level)
+                
+            player.gold += 20
+            print(f"You gain +20 gold for eliminating a monster")
             print(f"You gain {exp_gain} experience points.")
             player.added_experience(exp_gain)
             print(f"Level {player.level}, XP {player.experience}/{player.experience_to_next_level()}")
