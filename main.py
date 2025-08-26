@@ -8,8 +8,7 @@ debug_mode = False
 player = None
 
 # (next time for me) figure out what math/balanced goes into stat (maybe)
-# add class like abilitys in combat (must) working on it
-# rebalance monsters to strong at start? (maybe)
+# rebalance monsters to strong at start? (MUST or make player stronger)
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -237,7 +236,7 @@ def monster_encounter(player):
 
         base_damage     = round((12.5 * player.level) + room_scale, 2)
         health          = round((110 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((5 + player.level) + room_scale, 2)
+        armor           = round((3 + player.level) + room_scale, 2)
         crit_chance     = round(1.5 + (0.2 * player.level), 2)
         crit_multiplier = round(1 + (0.2 * player.level), 2)
         if crit_multiplier > 2:
@@ -258,7 +257,7 @@ def monster_encounter(player):
 
         base_damage     = round((15 * player.level) + room_scale, 2)
         health          = round((230 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((15 + (0.5 * player.level)) + room_scale, 2)
+        armor           = round((10 + (0.5 * player.level)) + room_scale, 2)
         crit_chance     = round(2 + (0.3 * player.level), 2)
         crit_multiplier = round(1.5 + (0.3 * player.level), 2)
         if crit_multiplier > 3:
@@ -279,7 +278,7 @@ def monster_encounter(player):
 
         base_damage     = round((20 * player.level) + room_scale, 2)
         health          = round((340 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((20 + (1 * player.level)) + room_scale, 2)
+        armor           = round((15 + (1 * player.level)) + room_scale, 2)
         crit_chance     = round(3 + (0.4 * player.level), 2)
         crit_multiplier = round(2 + (0.4 * player.level), 2)
         if crit_multiplier > 5:

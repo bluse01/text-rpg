@@ -34,7 +34,7 @@ class BaseCharacter:
 class Player(BaseCharacter):
 
     def __init__(self, level, experience, room, stat_points, char_class):
-        # Playey bla bla bla
+        # Player bla bla bla
         self.level = level
         self.experience = experience
         self.room = room
@@ -112,6 +112,10 @@ class Player(BaseCharacter):
                 self.double_strike_chance = 100
         elif self.char_class == "Vampire":
             self.life_steal = 0.1 + (0.02 * self.level)
+
+        # readd passives after calling recalc_stats()
+        for passive in self.passives:
+            passive.apply(self)
 
         self.check_for_passives()
 
