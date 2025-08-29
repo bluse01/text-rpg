@@ -1,38 +1,47 @@
 import random
-from passives import Overcrit
+from passives import Infection
+from shop import create_items, clear_shop
 
 class BaseCharacter:
-    def __init__(self, base_damage, health, armor, crit_chance, crit_multiplier, name):
+    def __init__(self, base_damage, base_damage_current, health, armor, crit_chance, crit_multiplier, passives, name):
             self.base_damage = base_damage
+            self.base_damage_current = base_damage_current
             self.armor = armor
             self.max_health = health
             self.current_health = health
             self.crit_chance = crit_chance
             self.crit_multiplier = crit_multiplier
+            self.passives = passives
             self.name = name
+    
+            self.base_damage_current = base_damage
 
     def calc_damage(self, target):
             crit_roll = random.randint(0, 100)
             is_crit = crit_roll <= self.crit_chance
-            
+
             if is_crit:
                 # Critical hit
-                damage = self.base_damage * self.crit_multiplier - target.armor
+                damage = self.base_damage_current * self.crit_multiplier - target.armor
                 damage = max(damage, 2)
             else:
                 # Normal hit
-                damage = self.base_damage - target.armor
+                damage = self.base_damage_current - target.armor
                 damage = max(damage, 1)
+
+            for passive in self.passives:
+                result = passive.on_combat_hook(damage)
+                if result is None:
+                    continue
 
             return round(damage, 2), is_crit
     
     def calc_overcharge(self, target):
-            damage = self.base_damage * 3 - (target.armor / 2)
+            damage = self.base_damage_current * 3 - (target.armor / 2)
 
             return round(damage, 2)
             
 class Player(BaseCharacter):
-
     def __init__(self, level, experience, room, stat_points, char_class, gold=0):
         # Player bla bla bla
         self.level = level
@@ -41,7 +50,6 @@ class Player(BaseCharacter):
         self.stat_points = stat_points
         self.char_class = char_class
         self.gold = gold
-        self.passives = []
         self.inventory = []
 
         # player class values
@@ -57,10 +65,11 @@ class Player(BaseCharacter):
         self.bonus_crit_multiplier = 0
 
         # Initialize with temporary stats (will recalc immediately)
-        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, name=None)  
+        super().__init__(base_damage=1, base_damage_current=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [Infection()], name="Player")  
 
         self.recalc_stats()
         self.current_health = self.max_health
+        self.base_damage_current = self.base_damage
 
         if self.char_class == "Warrior":
             self.bonus_health += 15  # +15% health
@@ -84,7 +93,7 @@ class Player(BaseCharacter):
                 return
             
         self.passives.append(passive)
-        passive.apply(self)  # Apply it immediately
+        passive.on_entity_apply_hook(self)  # Apply it immediately
 
     def check_for_passives(self):
         # if crit more and 100 then add passive: Overcrit
@@ -117,7 +126,7 @@ class Player(BaseCharacter):
 
         # readd passives after calling recalc_stats()
         for passive in self.passives:
-            passive.apply(self)
+            passive.on_entity_apply_hook(self)
 
         self.check_for_passives()
 
@@ -166,11 +175,13 @@ class Player(BaseCharacter):
     def level_up(self, levels=1, heal_on_level=True):
         self.level += levels
         self.recalc_stats()
+        clear_shop()
         if heal_on_level:
             self.current_health = self.max_health
 
 class Monster(BaseCharacter):
-    def __init__(self, base_damage, health, armor, crit_chance, crit_multiplier, name, tier):
-        super().__init__(base_damage, health, armor, crit_chance, crit_multiplier, name)
+    def __init__(self, base_damage, base_damage_current,health, armor, crit_chance, crit_multiplier, passives, name, tier):
+        super().__init__(base_damage, base_damage_current, health, armor, crit_chance, crit_multiplier, passives, name)
+        self.base_damage_current = base_damage
         self.current_health = self.max_health
         self.tier = tier

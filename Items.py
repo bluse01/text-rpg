@@ -1,4 +1,4 @@
-from characters import random
+import random
 
 class Item:
     all_Items = []

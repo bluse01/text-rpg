@@ -2,15 +2,12 @@ import os
 import time
 from termcolor import colored
 
-from shop import shop_menu
+from shop import shop_menu, clear_shop
 from characters import Player, Monster, random
+from passives import Slash
 
 debug_mode = False
 player = None
-
-# rebalance monsters to strong at start? (MUST or make player stronger)
-# working on inventory system and items
-# next boss level for each xx room
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -77,6 +74,10 @@ def combat(player, monster):
     if debug_mode:
         print("[DEBUG] Player Stats:", vars(player))
         print("\n[DEBUG] Monster Stats:", vars(monster))
+
+    # checks last index of a string because all boss tiers end with 's'
+    if monster.tier[-1] == "s":
+        print(f"\nYou have encountered a Boss - {monster.name}!")
 
     while player.current_health > 0 and monster.current_health > 0:
         print(f"\n--- Combat Turn {turn} ---")
@@ -169,7 +170,7 @@ def combat(player, monster):
             if debug_mode:
                 return "Debug_safemode"
             return "Player defeated"
-
+        
 def CreateCharacter():
     clear()
     
@@ -230,29 +231,50 @@ def monster_encounter(player):
     ml_monsterN = ["Bandit", "Wolf", "Giant Rat", "Harpy", "Gnoll"]
     hl_monsterN = ["Ogre", "Wraith", "Minotaur", "Vampire", "Dragon"]
 
+    ll_bossN = ["Gruk", "Mirefang", "Tharn"]
+    ml_bossN = ["Draven", "Morvak", "Ashborn"]
+    hl_bossN = ["Kaelthar", "Vorrak", "Eldros"]
+
     room_scale = player.room * 1.5  # scaling factor for the room
 
     # Create a low level monster based on player level
     if player.level <= 10:
-        monster_name = random.choice(ll_monsterN)
 
-        base_damage     = round((12.5 * player.level) + room_scale, 2)
-        health          = round((110 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((3 + player.level) + room_scale, 2)
+        base_damage     = round((13 * player.level) + room_scale, 2)
+        health          = round((130 * player.level + player.base_damage) + room_scale, 2)
+        armor           = round((4 + player.level) + room_scale, 2)
         crit_chance     = round(1.5 + (0.2 * player.level), 2)
         crit_multiplier = round(1 + (0.2 * player.level), 2)
         if crit_multiplier > 2:
             crit_multiplier = 2
 
-        ll_monster = Monster(
+        # if player level 10 create a boss
+        if player.level == 10:
+            monster_name = random.choice(ll_bossN)
+            ll_monster = Monster(
             base_damage=base_damage,
+            base_damage_current=base_damage,
             health=health,
             armor=armor,
             crit_chance=crit_chance,
             crit_multiplier=crit_multiplier,
             name=monster_name,
+            passives=[Slash()],
+            tier="ll_boss"
+            )
+        else:
+            monster_name = random.choice(ll_monsterN)
+            ll_monster = Monster(
+            base_damage=base_damage,
+            base_damage_current=base_damage,
+            health=health,
+            armor=armor,
+            crit_chance=crit_chance,
+            crit_multiplier=crit_multiplier,
+            name=monster_name,
+            passives=[],
             tier="low"
-        )
+            )
         return ll_monster
     elif 10 < player.level <= 30:
         monster_name = random.choice(ml_monsterN)
@@ -265,15 +287,30 @@ def monster_encounter(player):
         if crit_multiplier > 3:
             crit_multiplier = 3
 
-        ml_monster = Monster(
+        if player.level == 25:
+            ml_monster = Monster(
             base_damage=base_damage,
+            base_damage_current=base_damage,
             health=health,
             armor=armor,
             crit_chance=crit_chance,
             crit_multiplier=crit_multiplier,
             name=monster_name,
+            passives=[],
+            tier="ml_boss"
+            )
+        else:
+            ml_monster = Monster(
+            base_damage=base_damage,
+            base_damage_current=base_damage,
+            health=health,
+            armor=armor,
+            crit_chance=crit_chance,
+            crit_multiplier=crit_multiplier,
+            name=monster_name,
+            passives=[],
             tier="medium"
-        )
+            )
         return ml_monster
     elif player.level > 30:
         monster_name = random.choice(hl_monsterN)
@@ -286,15 +323,30 @@ def monster_encounter(player):
         if crit_multiplier > 5:
             crit_multiplier = 5
 
-        hl_monster = Monster(
-            base_damage=base_damage,
-            health=health,
-            armor=armor,
-            crit_chance=crit_chance,
-            crit_multiplier=crit_multiplier,
-            name=monster_name,
-            tier="high"
-        )
+        if player == 50:
+            hl_monster = Monster(
+                base_damage=base_damage,
+                base_damage_current=base_damage,
+                health=health,
+                armor=armor,
+                crit_chance=crit_chance,
+                crit_multiplier=crit_multiplier,
+                name=monster_name,
+                passives=[],
+                tier="hh_boss"
+            )
+        else:
+            hl_monster = Monster(
+                base_damage=base_damage,
+                base_damage_current=base_damage,
+                health=health,
+                armor=armor,
+                crit_chance=crit_chance,
+                crit_multiplier=crit_multiplier,
+                name=monster_name,
+                passives=[],
+                tier="high"
+            )
         return hl_monster
     else:
         print("No monsters available for your level.")
@@ -423,6 +475,7 @@ def game_loop():
             continue
         elif choice == "4":
             player.current_health = player.max_health
+            clear_shop()
             print("You have rested and restored your health to full.")
             time.sleep(1)
             clear()

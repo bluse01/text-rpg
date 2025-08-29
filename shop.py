@@ -1,5 +1,5 @@
 from Items import *
-from characters import random
+import random
 from termcolor import colored
 
 # possible items that can exist 
@@ -7,8 +7,12 @@ from termcolor import colored
 possible_item_list = [HealingPotion]
 items_for_sale = []
 
+def clear_shop():
+    global items_for_sale
+    del items_for_sale[:]
+
 # generate items for the shop
-# if player levels up regenerate
+# if player levels up call it again
 def create_items(num_items=4):
     item_list = []
     while len(item_list) < num_items:
@@ -25,7 +29,7 @@ def create_items(num_items=4):
 def shop_menu(player):
     global items_for_sale
 
-    # first time entering the shop generate stock
+    # if no stock generate one
     if not items_for_sale:
         items_for_sale = create_items()
 

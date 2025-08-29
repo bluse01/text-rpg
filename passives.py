@@ -1,10 +1,46 @@
+import random
+
 class Passive:
     def __init__(self, name, dec):
         self.name = name
         self.dec = dec
 
-    def apply(self, player):
+    # this hook can be called outside combat to add passvies ability to entity
+    def on_entity_apply_hook(self, entity):
         pass
+
+    # this hook can be called inside a combat to return modified value
+    def on_combat_hook(self, damage):
+        pass
+
+class Infection(Passive):
+    def __init__(self):
+        super().__init__(
+            name="Infection", 
+            dec="Of on_roll deals 1.5x damage and infect a player debuffind there enemys and dealing DOT")
+    
+    def on_combat_hook(self, damage):
+        on_roll = random.randint(0, 1)
+
+        if on_roll:
+            damage = damage * 1.5
+            return damage, True
+        return damage, False  
+
+class Slash(Passive):
+    def __init__(self):
+        super().__init__(
+            name = "Slash", 
+            dec = "If on_roll deals 1.5x damage to the enemy.")
+
+    def on_combat_hook(self, damage, target=None):
+        on_roll = random.randint(0, 1)
+
+        if on_roll:
+            damage = damage * 1.5
+            return damage, False
+        else:
+            return damage, False        
 
 class Overcrit(Passive):
     def __init__(self):
@@ -13,8 +49,8 @@ class Overcrit(Passive):
             dec = f"Excess crit chance above 100% is converted into crit multiplier."
         )
 
-    def apply(self, player):
-        if player.crit_chance > 100:
-            overflow = player.crit_chance - 100
-            player.crit_multiplier += overflow / 50
-            player.crit_chance = 100
+    def on_entity_apply_hook(self, entity):
+        if entity.crit_chance > 100:
+            overflow = entity.crit_chance - 100
+            entity.crit_multiplier += round(overflow / 50)
+            entity.crit_chance = 100
