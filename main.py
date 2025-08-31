@@ -5,7 +5,7 @@ from termcolor import colored
 from shop import shop_menu, clear_shop
 from characters import Player, Monster, random
 from passives import Slash, Infection
-from DOTS import InfectionDOT
+from DOTS import InfectionDOT, BleedDOT
 
 debug_mode = False
 player = None
@@ -80,22 +80,37 @@ def combat(player, monster):
     if monster.tier[-1] == "s":
         print(f"\nYou have encountered a Boss - {monster.name}!")
 
-    def apply_passives(entity, target, entity_damage):
-            for passive in entity.passives:
-                if hasattr(passive, "on_combat_hook"):
-                    result = passive.on_combat_hook(entity_damage)
-                    if result and len(result) == 2:
-                        damage, should_apply_dot = result
-                        if should_apply_dot and passive.name == "Infection":
-                            # deal 20% of total damage on DOT
-                            dot_damage = damage * 0.2
-                            infection_dot = InfectionDOT(dot_damage, 3, entity)
-                            target.dot_manager.add_dot(infection_dot)
-            try:
-                entity_damage += damage
-            except UnboundLocalError:
-                return False
-            return entity_damage - target.armor
+    def apply_passives(entity, target, calced_damage, base_damage):
+        modified_damage = calced_damage
+        
+        for passive in entity.passives:
+            if hasattr(passive, "on_combat_hook"):
+                result = passive.on_combat_hook(modified_damage)
+                
+                if result and len(result) == 2:
+                    damage, should_apply_dot = result
+                    modified_damage = damage
+                    
+                    if should_apply_dot and passive.name == "Infection":
+                        # calculate DOT damage (20% of the hit damage)
+                        dot_damage = base_damage * 0.2
+                        # infection lasts 4 turns
+                        infection_dot = InfectionDOT(dot_damage, 4, entity)
+                        target.dot_manager.add_dot(infection_dot)
+
+                    if should_apply_dot and passive.name == "Slash":
+                        # calculate DOT damage (30% of the hit damage)
+                        dot_damage = base_damage * 0.3
+                        bleed_dot = BleedDOT(dot_damage, 3, entity)
+                        target.dot_manager.add_dot(bleed_dot)
+                        
+                        # show who applied what to whom
+                        if entity.name == "Player":
+                            print(f"Your {colored(f'{passive.name}', 'magenta')} spreads to {target.name}!")
+                        else:
+                            print(f"{entity.name}'s {colored(f'{passive.name}', 'magenta')} spreads to you!")
+        
+        return modified_damage
 
     while player.current_health > 0 and monster.current_health > 0:
         print(f"\n--- Combat Turn {turn} ---")
@@ -124,8 +139,8 @@ def combat(player, monster):
         # ---- Player Action ----
         if choice == "1":
             damage, is_crit = player.calc_damage(monster)
-            passive_result = apply_passives(player, monster, player.base_damage)
-            if passive_result is not False:
+            passive_result = apply_passives(player, monster, damage, player.base_damage)
+            if passive_result != 0:
                 damage = passive_result
 
             monster.current_health -= damage
@@ -195,8 +210,8 @@ def combat(player, monster):
         # ---- Monster Action ----
         damage, is_crit = monster.calc_damage(player)
 
-        monster_passive_result = apply_passives(monster, player, monster.base_damage)
-        if monster_passive_result is not False:
+        monster_passive_result = apply_passives(monster, player, damage, monster.base_damage)
+        if monster_passive_result != 0:
             damage = monster_passive_result
         
         if player.char_class == "Warrior":
@@ -321,7 +336,7 @@ def monster_encounter(player):
             crit_chance=crit_chance,
             crit_multiplier=crit_multiplier,
             name=monster_name,
-            passives=[Infection()],
+            passives=[Slash()],
             tier="low"
             )
         return ll_monster

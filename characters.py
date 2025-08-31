@@ -1,5 +1,5 @@
 import random
-from passives import Infection
+from passives import Infection, Slash
 from shop import create_items, clear_shop
 from DOTS import DOTManager
 

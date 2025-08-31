@@ -53,12 +53,13 @@ class DOTManager:
 
         for dot in self.active_dots[:]:
             damage = dot.apply(target)
+            if damage > 0:
+                print(f"{target.name} takes {colored(round(damage, 2), 'red')} {dot.name} damage!")
             total_damage += damage
 
         # Remove expired DOTs
         self.active_dots = [dot for dot in self.active_dots if not dot.is_expired()]
         
-        print(f"You deal {total_damage} DOT!")
         return total_damage
 
     def has_dot(self, dot_name):
