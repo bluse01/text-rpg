@@ -1,6 +1,7 @@
 import random
 from passives import Infection
 from shop import create_items, clear_shop
+from DOTS import DOTManager
 
 class BaseCharacter:
     def __init__(self, base_damage, base_damage_current, health, armor, crit_chance, crit_multiplier, passives, name):
@@ -16,6 +17,8 @@ class BaseCharacter:
     
             self.base_damage_current = base_damage
 
+            self.dot_manager = DOTManager()
+
     def calc_damage(self, target):
             crit_roll = random.randint(0, 100)
             is_crit = crit_roll <= self.crit_chance
@@ -28,11 +31,6 @@ class BaseCharacter:
                 # Normal hit
                 damage = self.base_damage_current - target.armor
                 damage = max(damage, 1)
-
-            for passive in self.passives:
-                result = passive.on_combat_hook(damage)
-                if result is None:
-                    continue
 
             return round(damage, 2), is_crit
     
@@ -65,7 +63,7 @@ class Player(BaseCharacter):
         self.bonus_crit_multiplier = 0
 
         # Initialize with temporary stats (will recalc immediately)
-        super().__init__(base_damage=1, base_damage_current=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [Infection()], name="Player")  
+        super().__init__(base_damage=1, base_damage_current=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [], name="Player")  
 
         self.recalc_stats()
         self.current_health = self.max_health

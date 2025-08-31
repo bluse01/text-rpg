@@ -1,4 +1,5 @@
 import random
+from termcolor import colored
 
 class Passive:
     def __init__(self, name, dec):
@@ -17,21 +18,23 @@ class Infection(Passive):
     def __init__(self):
         super().__init__(
             name="Infection", 
-            dec="Of on_roll deals 1.5x damage and infect a player debuffind there enemys and dealing DOT")
+            dec="On hit chance to deal 1.5x damage and apply Infection DOT")
     
     def on_combat_hook(self, damage):
-        on_roll = random.randint(0, 1)
+        on_roll = random.randint(0, 100)
 
-        if on_roll:
+        if on_roll < 25:
             damage = damage * 1.5
-            return damage
-        return damage  
+            print(f"{colored('Infection triggered!', 'green')} +50% damage!")
+            return damage, True
+        # return damage = 0 because combat doesn't check if passive on hit was applied or not
+        return 0, False  
 
 class Slash(Passive):
     def __init__(self):
         super().__init__(
             name = "Slash", 
-            dec = "If on_roll deals 1.5x damage to the enemy.")
+            dec = "On hit chance to deal 1.5x damage to the enemy.")
 
     def on_combat_hook(self, damage, target=None):
         on_roll = random.randint(0, 1)

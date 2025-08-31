@@ -4,7 +4,8 @@ from termcolor import colored
 
 from shop import shop_menu, clear_shop
 from characters import Player, Monster, random
-from passives import Slash
+from passives import Slash, Infection
+from DOTS import InfectionDOT
 
 debug_mode = False
 player = None
@@ -79,10 +80,41 @@ def combat(player, monster):
     if monster.tier[-1] == "s":
         print(f"\nYou have encountered a Boss - {monster.name}!")
 
+    def apply_passives(entity, target, entity_damage):
+            for passive in entity.passives:
+                if hasattr(passive, "on_combat_hook"):
+                    result = passive.on_combat_hook(entity_damage)
+                    if result and len(result) == 2:
+                        damage, should_apply_dot = result
+                        if should_apply_dot and passive.name == "Infection":
+                            # deal 20% of total damage on DOT
+                            dot_damage = damage * 0.2
+                            infection_dot = InfectionDOT(dot_damage, 3, entity)
+                            target.dot_manager.add_dot(infection_dot)
+            try:
+                entity_damage += damage
+            except UnboundLocalError:
+                return False
+            return entity_damage - target.armor
+
     while player.current_health > 0 and monster.current_health > 0:
         print(f"\n--- Combat Turn {turn} ---")
-        print(f"You'r Health: {colored(round(player.current_health, 2), 'green')} | Mana: {colored(player_mana, 'blue')}")
-        print(f"{monster.name}'s Health: {colored(round(monster.current_health, 2), 'yellow')}")
+
+        # Display DOT effects
+        player_dots = player.dot_manager.get_dot_info()
+        monster_dots = monster.dot_manager.get_dot_info()
+        
+        health_display = f"You'r Health: {colored(round(player.current_health, 2), 'green')}"
+        if player_dots:
+            health_display += f" [{colored(player_dots, 'red')}]"
+        health_display += f" | Mana: {colored(player_mana, 'blue')}"
+        print(health_display)
+        
+        monster_health_display = f"{monster.name}'s Health: {colored(round(monster.current_health, 2), 'yellow')}"
+        if monster_dots:
+            monster_health_display += f" [{colored(monster_dots, 'red')}]"
+        print(monster_health_display)
+
         if player.char_class == "Mage":
             print("1. Attack  2. Defend  3. Overcharge Attack (Cost 6 mana)")
         else:
@@ -92,6 +124,10 @@ def combat(player, monster):
         # ---- Player Action ----
         if choice == "1":
             damage, is_crit = player.calc_damage(monster)
+            passive_result = apply_passives(player, monster, player.base_damage)
+            if passive_result is not False:
+                damage = passive_result
+
             monster.current_health -= damage
             if is_crit:
                 print(f"You land a {colored('critical hit!', 'red')} dealing {colored(damage, 'red')} damage!")
@@ -145,6 +181,12 @@ def combat(player, monster):
                 heal_amount = damage * player.life_steal
                 player.current_health = min(player.max_health, player.current_health + heal_amount)
                 print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
+
+        
+        # Apply DOTs to monster
+        if monster.dot_manager.active_dots:
+            monster.dot_manager.process_dots(monster)
+
         turn += 1
 
         if monster.current_health <= 0:
@@ -152,6 +194,10 @@ def combat(player, monster):
 
         # ---- Monster Action ----
         damage, is_crit = monster.calc_damage(player)
+
+        monster_passive_result = apply_passives(monster, player, monster.base_damage)
+        if monster_passive_result is not False:
+            damage = monster_passive_result
         
         if player.char_class == "Warrior":
             damage = round(damage * player.toughness_modfier, 2)
@@ -165,6 +211,9 @@ def combat(player, monster):
             print(f"The {monster.name} lands a {colored('critical hit!', 'red')} for {colored(damage, 'red')} damage!")
         else:
             print(f"The {monster.name} deals {colored(damage, 'yellow')} damage!")
+
+        if player.dot_manager.active_dots:
+            player.dot_manager.process_dots(player)
 
         if player.current_health <= 0:
             if debug_mode:
@@ -272,7 +321,7 @@ def monster_encounter(player):
             crit_chance=crit_chance,
             crit_multiplier=crit_multiplier,
             name=monster_name,
-            passives=[],
+            passives=[Infection()],
             tier="low"
             )
         return ll_monster
