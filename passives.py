@@ -24,8 +24,8 @@ class Infection(Passive):
 
         if on_roll:
             damage = damage * 1.5
-            return damage, True
-        return damage, False  
+            return damage
+        return damage  
 
 class Slash(Passive):
     def __init__(self):
