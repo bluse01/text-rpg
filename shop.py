@@ -1,10 +1,17 @@
 from Items import *
 import random
-from termcolor import colored
 
 # possible items that can exist 
 # needs to be manually updated
-possible_item_list = [HealingPotion]
+possible_item_list = [
+    HealingPotion,
+    PocketBomb,
+    Armorkit,
+    LuckyCharm,
+    ManaPotion,
+    VampirePotion,
+    SharpeningStone
+    ]
 items_for_sale = []
 
 def clear_shop():
@@ -20,6 +27,9 @@ def create_items(num_items=4):
         if item_class is HealingPotion:
             size = HealingPotion.pot_roll()
             item = HealingPotion(size)
+        elif item_class is PocketBomb:
+            bomb_type = PocketBomb.bomb_roll()
+            item = PocketBomb(bomb_type)
         else:
             item = item_class()
         item_list.append(item)
@@ -39,10 +49,9 @@ def shop_menu(player):
 
     # display items
     for idx, item in enumerate(items_for_sale, start=1):
-        color = "green" if isinstance(item, HealingPotion) else "white"
         print(
             f"{colored(str(idx) + '.', 'cyan')} "
-            f"{colored(item.name, color, attrs=['bold'])} - {item.desc} | "
+            f"{colored(item.name, 'green', attrs=['bold'])} - {item.desc} | "
             f"{colored('Gold: ' + str(item.gold_cost), 'yellow')}"
         )
 
@@ -62,9 +71,12 @@ def shop_menu(player):
     if 1 <= choice <= len(items_for_sale):
         selected_item = items_for_sale[choice - 1]
         if player.gold >= selected_item.gold_cost:
+            # give player a item
             player.inventory.append(selected_item)
+            # reduce player gold by the amount of the item gold_cost
             player.gold -= selected_item.gold_cost
             print(colored(f"You bought {selected_item.name}! Added to your inventory.", "green"))
+
             items_for_sale.pop(choice - 1)
         else:
             print(colored("You don't have enough gold!", "red"))

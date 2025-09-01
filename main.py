@@ -10,6 +10,10 @@ from DOTS import InfectionDOT, BleedDOT
 debug_mode = False
 player = None
 
+# next time for me
+# 1. expand items and maybe shop (mostly done)
+# 2. add more passives and maybe abilities
+
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
 
@@ -66,19 +70,91 @@ def start():
         time.sleep(1)
         start()
 
+def player_inventory_menu(player, monster = None):
+    print(colored("\nYour Inventory:", "cyan", attrs=["bold"]))
+    for i in range(len(player.inventory)):
+        item = player.inventory[i]
+        print(f"{i+1}. {item.name} - {item.desc}")
+
+    print(f"{len(player.inventory)+1}. Exit inventory")
+    print("Choose item to use:")
+    
+    try:
+        ch = int(input("> "))
+        
+        if ch == len(player.inventory) + 1:
+            print("Exiting inventory...")
+            time.sleep(1)
+            return
+            
+        if 1 <= ch <= len(player.inventory):
+            item = player.inventory[ch - 1]
+        
+            # Use the item (pass monster if in combat)
+            if item.use(player, monster):
+                player.inventory.pop(ch - 1)
+                input("Press Enter to continue...\n")
+            else:
+                input("Press Enter to continue...\n")
+        else:
+            print("Invalid choice!")
+            time.sleep(1)
+    except TypeError:
+        if 1 <= ch <= len(player.inventory):
+            item = player.inventory[ch - 1]
+
+            if item.use(player):
+                player.inventory.pop(ch - 1)
+                input("Press Enter to continue...")
+            else:
+                input("Press Enter to continue...")
+        else:
+            print("Invalid choice!")
+            time.sleep(1)
+            
+    except ValueError:
+        print("Please enter a valid number!")
+        time.sleep(1)   
+
 def combat(player, monster):
-    player_mana = 0
+    player.mana = 0
     turn = 1
     is_defending = False
 
-    clear()
-    if debug_mode:
-        print("[DEBUG] Player Stats:", vars(player))
-        print("\n[DEBUG] Monster Stats:", vars(monster))
+    original_armor = player.armor
+    original_crit_chance = player.crit_chance
+    original_lifesteal_chance = player.life_steal
+    original_base_damage_current = player.base_damage_current
 
+    clear()
     # checks last index of a string because all boss tiers end with 's'
     if monster.tier[-1] == "s":
         print(f"\nYou have encountered a Boss - {monster.name}!")
+
+    # increes armor if player has used armorkit item before combat
+    if hasattr(player, "temp_armor_boost"):
+        player.armor *= (1 + player.temp_armor_boost)
+        print(colored(f"Your armor feels reinforced! (+{player.temp_armor_boost*100}% armor)", "green"))
+        delattr(player, 'temp_armor_boost')
+
+    if hasattr(player, "temp_crit_boost"):
+        player.crit_chance += player.temp_crit_boost
+        print(colored(f"You feel lucky! (+{player.temp_crit_boost}% crit chance)", "green"))
+        delattr(player, 'temp_crit_boost')
+
+    if hasattr(player, "temp_lifesteal_boost"):
+        player.life_steal += player.temp_lifesteal_boost
+        print(colored("You feel bloodthirst! Now you heal more.", "green"))
+        delattr(player, "temp_lifesteal_boost")
+    
+    if hasattr(player, "temp_damage_boost"):
+        player.base_damage_current *= (1 + player.temp_damage_boost)
+        print(colored(colored(f"Your weapon gleams with enhanced sharpness! (+{player.temp_damage_boost*100}% damage)", "green")))
+        delattr(player, 'temp_damage_boost')
+
+    if debug_mode:
+        print("[DEBUG] Player Stats:", vars(player))
+        print("\n[DEBUG] Monster Stats:", vars(monster))
 
     def apply_passives(entity, target, calced_damage, base_damage):
         modified_damage = calced_damage
@@ -122,7 +198,7 @@ def combat(player, monster):
         health_display = f"You'r Health: {colored(round(player.current_health, 2), 'green')}"
         if player_dots:
             health_display += f" [{colored(player_dots, 'red')}]"
-        health_display += f" | Mana: {colored(player_mana, 'blue')}"
+        health_display += f" | Mana: {colored(player.mana, 'blue')}"
         print(health_display)
         
         monster_health_display = f"{monster.name}'s Health: {colored(round(monster.current_health, 2), 'yellow')}"
@@ -131,9 +207,9 @@ def combat(player, monster):
         print(monster_health_display)
 
         if player.char_class == "Mage":
-            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 6 mana)")
+            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 6 mana) 4. Items")
         else:
-            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 4 mana)")
+            print("1. Attack  2. Defend  3. Overcharge Attack (Cost 4 mana) 4. Items")
         choice = input("> ")
 
         # ---- Player Action ----
@@ -149,7 +225,7 @@ def combat(player, monster):
             else:
                 print(f"You deal {colored(damage, 'yellow')} damage.")
 
-            if player.char_class == "Vampire":
+            if player.char_class == "Vampire" or player.life_steal != 0:
                 heal_amount = damage * player.life_steal
                 player.current_health = min(player.max_health, player.current_health + heal_amount)
                 print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
@@ -163,39 +239,43 @@ def combat(player, monster):
                     print(f"{colored('Double Strike!', 'cyan')} You deal {colored(damage, 'yellow')} damage.")
             
             if player.char_class == "Mage":
-               player_mana += 4 
+               player.mana += 4 
             else:
-                player_mana += 2
+                player.mana += 2
 
         elif choice == "2":
             print("You brace yourself, halving the next attack.")
             is_defending = True
             if player.char_class == "Mage":
-                player_mana += 2
+                player.mana += 2
             else:
-                player_mana += 1
+                player.mana += 1
 
         elif choice == "3":
-            if player_mana >= 6 and player.char_class == "Mage":
+            if player.mana >= 6 and player.char_class == "Mage":
                 damage = player.calc_overcharge(monster)
                 # boost damage based on multiplier for mage class
                 damage = damage * player.overcharge_boost
                 monster.current_health -= damage
                 print(f"You unleash an {colored('MEGA Overcharge Attack!', 'cyan')} dealing {colored(damage, 'red')} damage!")
             else:
-                if player_mana >= 4:
+                if player.mana >= 4:
                     damage = player.calc_overcharge(monster)
                     monster.current_health -= damage
                     print(f"You unleash an {colored('Overcharge Attack!', 'red')} dealing {colored(damage, 'red')} damage!")
-                    player_mana -= 4
+                    player.mana -= 4
                 else:
                     print("Not enough mana for Overcharge Attack!")
                     continue  # skip to retry input
 
+            # only vampire class heal on overcharged attacks
             if player.char_class == "Vampire":
                 heal_amount = damage * player.life_steal
                 player.current_health = min(player.max_health, player.current_health + heal_amount)
                 print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
+        elif choice == "4":
+            print("test")
+            player_inventory_menu(player, monster)
 
         
         # Apply DOTs to monster
@@ -231,6 +311,10 @@ def combat(player, monster):
             player.dot_manager.process_dots(player)
 
         if player.current_health <= 0:
+            player.armor = original_armor
+            player.crit_chance = original_crit_chance
+            player.life_steal = original_lifesteal_chance
+            player.base_damage_current = original_base_damage_current
             if debug_mode:
                 return "Debug_safemode"
             return "Player defeated"
@@ -485,29 +569,6 @@ def game_loop():
         clear()
         return
 
-    def player_inventory_menu(player):
-        clear()
-        print(colored("\nYour Inventory:", "cyan", attrs=["bold"]))
-        for i in range(len(player.inventory)):
-            item = player.inventory[i]
-            print(f"{i+1}. {item.name} - {item.desc}")
-        
-        print("Choose item to use!")
-        ch = int(input("> "))
-
-        if 1 <= ch <= len(player.inventory):
-            player.inventory[ch - 1].use(player)
-            player.inventory.pop(ch - 1)
-            input("> ")
-        elif ch == 0:
-            print("Existing inventory...")
-            time.sleep(1)
-            return
-        else:
-            print("invalid Choose!")
-            time.sleep(1)
-            return
-
     while True:
         if debug_mode:
             print("[DEBUG] Player Stats:", vars(player))
@@ -530,6 +591,7 @@ def game_loop():
             print("Continuing your adventure...")
             rm = room_create(player)
         elif choice == "2":
+            clear()
             player_inventory_menu(player)
             clear()
             continue

@@ -40,13 +40,14 @@ class BaseCharacter:
             return round(damage, 2)
             
 class Player(BaseCharacter):
-    def __init__(self, level, experience, room, stat_points, char_class, gold=0):
+    def __init__(self, level, experience, room, stat_points, char_class, mana = 0, gold=0):
         # Player bla bla bla
         self.level = level
         self.experience = experience
         self.room = room
         self.stat_points = stat_points
         self.char_class = char_class
+        self.mana = mana
         self.gold = gold
         self.inventory = []
 
