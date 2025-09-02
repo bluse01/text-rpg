@@ -1,12 +1,16 @@
 import random
-from passives import Infection, Slash
+from passives import Infection, Slash, OverHeal, Overcrit, LuckyStreak
 from shop import create_items, clear_shop
 from DOTS import DOTManager
 
+passive_list = [
+    OverHeal(),
+    Overcrit()
+]
+
 class BaseCharacter:
-    def __init__(self, base_damage, base_damage_current, health, armor, crit_chance, crit_multiplier, passives, name):
+    def __init__(self, base_damage, health, armor, crit_chance, crit_multiplier, passives, name):
             self.base_damage = base_damage
-            self.base_damage_current = base_damage_current
             self.armor = armor
             self.max_health = health
             self.current_health = health
@@ -14,8 +18,6 @@ class BaseCharacter:
             self.crit_multiplier = crit_multiplier
             self.passives = passives
             self.name = name
-    
-            self.base_damage_current = base_damage
 
             self.dot_manager = DOTManager()
 
@@ -25,17 +27,17 @@ class BaseCharacter:
 
             if is_crit:
                 # Critical hit
-                damage = self.base_damage_current * self.crit_multiplier - target.armor
+                damage = self.base_damage * self.crit_multiplier - target.armor
                 damage = max(damage, 2)
             else:
                 # Normal hit
-                damage = self.base_damage_current - target.armor
+                damage = self.base_damage - target.armor
                 damage = max(damage, 1)
 
             return round(damage, 2), is_crit
     
     def calc_overcharge(self, target):
-            damage = self.base_damage_current * 3 - (target.armor / 2)
+            damage = self.base_damage * 3 - (target.armor / 2)
 
             return round(damage, 2)
             
@@ -64,11 +66,14 @@ class Player(BaseCharacter):
         self.bonus_crit_multiplier = 0
 
         # Initialize with temporary stats (will recalc immediately)
-        super().__init__(base_damage=1, base_damage_current=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [], name="Player")  
+        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [LuckyStreak(), OverHeal()], name="Player")  
 
         self.recalc_stats()
         self.current_health = self.max_health
-        self.base_damage_current = self.base_damage
+
+        # player add-ons
+        self.max_heal = self.max_health
+        self.consecutive_hits = 0
 
         if self.char_class == "Warrior":
             self.bonus_health += 15  # +15% health
@@ -83,26 +88,27 @@ class Player(BaseCharacter):
             self.double_strike_chance += 10  # 10% chance to attack twice
         elif self.char_class == "Vampire":
             self.bonus_health += 10  # +10% health
-            self.life_steal = 0.1  # 10% life steal 
+            self.life_steal = 2  # 10% life steal 
 
     def add_passive(self, passive):
         # Check if we already have this passive type
         for existing_passive in self.passives:
             if type(existing_passive) == type(passive):
                 return
-            
-        self.passives.append(passive)
-        passive.on_entity_apply_hook(self)  # Apply it immediately
+
+        # check if passive return true or false
+        passive_result = passive.on_entity_apply_hook(self)
+        if passive_result:
+            self.passives.append(passive)
+            passive.on_entity_apply_hook(self)  # Apply it immediately	         
 
     def check_for_passives(self):
-        # if crit more and 100 then add passive: Overcrit
-        if self.crit_chance > 100:
-            from passives import Overcrit
-            self.add_passive(Overcrit())
+        for passive in passive_list:
+            self.add_passive(passive)
  
     def recalc_stats(self):
         # Calculate base stats first
-        self.base_damage = 10 * self.level
+        self.base_damage = 12 * self.level
         self.max_health = 100 * self.level
         self.armor = 5 + (0.1 * self.level)
         self.crit_chance = 1 + (0.5 * self.level)
@@ -121,8 +127,10 @@ class Player(BaseCharacter):
             if self.double_strike_chance > 100:
                 self.double_strike_chance = 100
         elif self.char_class == "Vampire":
-            self.life_steal = 0.1 + (0.02 * self.level)
+            self.life_steal += 0.1 + (0.02 * self.level)
 
+        # reset player-addons because passive might change it to higher values
+        self.max_heal = self.max_health
         # readd passives after calling recalc_stats()
         for passive in self.passives:
             passive.on_entity_apply_hook(self)
@@ -179,8 +187,7 @@ class Player(BaseCharacter):
             self.current_health = self.max_health
 
 class Monster(BaseCharacter):
-    def __init__(self, base_damage, base_damage_current,health, armor, crit_chance, crit_multiplier, passives, name, tier):
-        super().__init__(base_damage, base_damage_current, health, armor, crit_chance, crit_multiplier, passives, name)
-        self.base_damage_current = base_damage
+    def __init__(self, base_damage,health, armor, crit_chance, crit_multiplier, passives, name, tier):
+        super().__init__(base_damage, health, armor, crit_chance, crit_multiplier, passives, name)
         self.current_health = self.max_health
         self.tier = tier

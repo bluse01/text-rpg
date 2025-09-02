@@ -124,7 +124,7 @@ def combat(player, monster):
     original_armor = player.armor
     original_crit_chance = player.crit_chance
     original_lifesteal_chance = player.life_steal
-    original_base_damage_current = player.base_damage_current
+    original_base_damage = player.base_damage
 
     clear()
     # checks last index of a string because all boss tiers end with 's'
@@ -148,7 +148,7 @@ def combat(player, monster):
         delattr(player, "temp_lifesteal_boost")
     
     if hasattr(player, "temp_damage_boost"):
-        player.base_damage_current *= (1 + player.temp_damage_boost)
+        player.base_damage *= (1 + player.temp_damage_boost)
         print(colored(colored(f"Your weapon gleams with enhanced sharpness! (+{player.temp_damage_boost*100}% damage)", "green")))
         delattr(player, 'temp_damage_boost')
 
@@ -185,10 +185,14 @@ def combat(player, monster):
                             print(f"Your {colored(f'{passive.name}', 'magenta')} spreads to {target.name}!")
                         else:
                             print(f"{entity.name}'s {colored(f'{passive.name}', 'magenta')} spreads to you!")
+                else:
+                    pass
+            
         
         return modified_damage
 
     while player.current_health > 0 and monster.current_health > 0:
+        print(player.consecutive_hits)
         print(f"\n--- Combat Turn {turn} ---")
 
         # Display DOT effects
@@ -222,13 +226,18 @@ def combat(player, monster):
             monster.current_health -= damage
             if is_crit:
                 print(f"You land a {colored('critical hit!', 'red')} dealing {colored(damage, 'red')} damage!")
+                # check for passive CAP 5
+                player.consecutive_hits = min(player.consecutive_hits + 1, 5)
             else:
                 print(f"You deal {colored(damage, 'yellow')} damage.")
 
             if player.char_class == "Vampire" or player.life_steal != 0:
                 heal_amount = damage * player.life_steal
-                player.current_health = min(player.max_health, player.current_health + heal_amount)
-                print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
+                player.current_health = min(player.max_heal, player.current_health + heal_amount)
+                if player.current_health > player.max_health:
+                     print(colored(f"You OverHeal {round(heal_amount, 2)} health!", "green", attrs=["bold"]))
+                else:
+                    print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
 
             if player.char_class == "Assassin" and random.randint(1, 100) <= player.double_strike_chance:
                 damage2, is_crit2 = player.calc_damage(monster)
@@ -271,8 +280,11 @@ def combat(player, monster):
             # only vampire class heal on overcharged attacks
             if player.char_class == "Vampire":
                 heal_amount = damage * player.life_steal
-                player.current_health = min(player.max_health, player.current_health + heal_amount)
-                print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
+                player.current_health = min(player.max_heal, player.current_health + heal_amount)
+                if player.current_health > player.max_health:
+                     print(colored(f"You OverHeal {round(heal_amount, 2)} health!", "green", attrs=["bold"]))
+                else:
+                    print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
         elif choice == "4":
             print("test")
             player_inventory_menu(player, monster)
@@ -314,7 +326,7 @@ def combat(player, monster):
             player.armor = original_armor
             player.crit_chance = original_crit_chance
             player.life_steal = original_lifesteal_chance
-            player.base_damage_current = original_base_damage_current
+            player.base_damage = original_base_damage
             if debug_mode:
                 return "Debug_safemode"
             return "Player defeated"
@@ -383,25 +395,23 @@ def monster_encounter(player):
     ml_bossN = ["Draven", "Morvak", "Ashborn"]
     hl_bossN = ["Kaelthar", "Vorrak", "Eldros"]
 
-    room_scale = player.room * 1.5  # scaling factor for the room
+    room_scale = player.room * 1.2  # scaling factor for the room
+
+    base_damage     = round((13 * (player.level * .7)) + room_scale, 2)
+    health          = round((140 * player.level + player.base_damage) + room_scale, 2)
+    armor           = round((3 + player.level / 2) + room_scale, 2)
+    crit_chance     = round(1.5 + (0.2 * player.level), 2)
+    crit_multiplier = round(1 + (0.2 * player.level), 2)
+    if crit_multiplier > 3:
+        crit_multiplier = 3
 
     # Create a low level monster based on player level
     if player.level <= 10:
-
-        base_damage     = round((13 * player.level) + room_scale, 2)
-        health          = round((130 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((4 + player.level) + room_scale, 2)
-        crit_chance     = round(1.5 + (0.2 * player.level), 2)
-        crit_multiplier = round(1 + (0.2 * player.level), 2)
-        if crit_multiplier > 2:
-            crit_multiplier = 2
-
         # if player level 10 create a boss
         if player.level == 10:
             monster_name = random.choice(ll_bossN)
             ll_monster = Monster(
             base_damage=base_damage,
-            base_damage_current=base_damage,
             health=health,
             armor=armor,
             crit_chance=crit_chance,
@@ -414,43 +424,32 @@ def monster_encounter(player):
             monster_name = random.choice(ll_monsterN)
             ll_monster = Monster(
             base_damage=base_damage,
-            base_damage_current=base_damage,
-            health=health,
-            armor=armor,
-            crit_chance=crit_chance,
-            crit_multiplier=crit_multiplier,
-            name=monster_name,
-            passives=[Slash()],
-            tier="low"
-            )
-        return ll_monster
-    elif 10 < player.level <= 30:
-        monster_name = random.choice(ml_monsterN)
-
-        base_damage     = round((15 * player.level) + room_scale, 2)
-        health          = round((230 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((10 + (0.5 * player.level)) + room_scale, 2)
-        crit_chance     = round(2 + (0.3 * player.level), 2)
-        crit_multiplier = round(1.5 + (0.3 * player.level), 2)
-        if crit_multiplier > 3:
-            crit_multiplier = 3
-
-        if player.level == 25:
-            ml_monster = Monster(
-            base_damage=base_damage,
-            base_damage_current=base_damage,
             health=health,
             armor=armor,
             crit_chance=crit_chance,
             crit_multiplier=crit_multiplier,
             name=monster_name,
             passives=[],
+            tier="low"
+            )
+        return ll_monster
+    elif 10 < player.level <= 30:
+        monster_name = random.choice(ml_monsterN)
+
+        if player.level == 25:
+            ml_monster = Monster(
+            base_damage=base_damage,
+            health=health,
+            armor=armor,
+            crit_chance=crit_chance,
+            crit_multiplier=crit_multiplier,
+            name=monster_name,
+            passives=[Infection()],
             tier="ml_boss"
             )
         else:
             ml_monster = Monster(
             base_damage=base_damage,
-            base_damage_current=base_damage,
             health=health,
             armor=armor,
             crit_chance=crit_chance,
@@ -463,18 +462,9 @@ def monster_encounter(player):
     elif player.level > 30:
         monster_name = random.choice(hl_monsterN)
 
-        base_damage     = round((20 * player.level) + room_scale, 2)
-        health          = round((340 * player.level + player.base_damage) + room_scale, 2)
-        armor           = round((15 + (1 * player.level)) + room_scale, 2)
-        crit_chance     = round(3 + (0.4 * player.level), 2)
-        crit_multiplier = round(2 + (0.4 * player.level), 2)
-        if crit_multiplier > 5:
-            crit_multiplier = 5
-
         if player == 50:
             hl_monster = Monster(
                 base_damage=base_damage,
-                base_damage_current=base_damage,
                 health=health,
                 armor=armor,
                 crit_chance=crit_chance,
@@ -486,7 +476,6 @@ def monster_encounter(player):
         else:
             hl_monster = Monster(
                 base_damage=base_damage,
-                base_damage_current=base_damage,
                 health=health,
                 armor=armor,
                 crit_chance=crit_chance,
@@ -574,7 +563,7 @@ def game_loop():
             print("[DEBUG] Player Stats:", vars(player))
         else:
             print("Your current stats are:")
-            print(f"Level: {player.level}, Health: {round(player.current_health, 2)}/{player.max_health}, Damage: {player.base_damage}, Armor: {player.armor}, Crit Chance: {player.crit_chance}%, Crit Multiplier: {player.crit_multiplier}x")
+            print(f"Level: {player.level}, Health: {colored(round(player.current_health, 2), 'green')}/{player.max_health}, Damage: {player.base_damage}, Armor: {player.armor}, Crit Chance: {player.crit_chance}%, Crit Multiplier: {player.crit_multiplier}x")
 
         print("\n--- Main Menu ---")
         print("1. Continue with adventure")
@@ -642,10 +631,10 @@ def game_loop():
             print(f"You have defeated the {monster.name}!")
             if debug_mode:
                 # In debug mode, give more experience for testing
-                exp_gain = 20 + (10 * player.level) * 10
+                exp_gain = 20 + (10 * player.level)
             else:
                 # Normal experience gain
-                exp_gain = 20 + (10 * player.level)
+                exp_gain = 20 + (20 * player.level)
                 
             player.gold += 20
             print(f"You gain +20 gold for eliminating a monster")

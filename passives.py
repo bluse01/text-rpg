@@ -57,3 +57,32 @@ class Overcrit(Passive):
             overflow = entity.crit_chance - 100
             entity.crit_multiplier += round(overflow / 50)
             entity.crit_chance = 100
+            return True
+        return False
+
+class OverHeal(Passive):
+    def __init__(self):
+        super().__init__(
+            name = "OverHeal",
+            dec = "Excess heal converts to overguard."
+        )
+
+    # if lifesteal over 1 do this
+    def on_entity_apply_hook(self, entity):
+        if entity.life_steal >= 1:
+            # max_heal is set to max_health so when lifesteal it doesn't go over the threshold
+            # this raises the threshold by 50%
+            entity.max_heal *= 1.5
+            return True
+        return False
+    
+class LuckyStreak(Passive):
+    def __init__(self):
+        super().__init__(
+            name = "Lucky Streak",
+            dec = f"Each critical strike landed gain +10% critical strike chance."
+        )
+
+    def on_combat_hook(self, damage = None):
+        print("test")
+        # WP
