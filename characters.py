@@ -66,7 +66,7 @@ class Player(BaseCharacter):
         self.bonus_crit_multiplier = 0
 
         # Initialize with temporary stats (will recalc immediately)
-        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [LuckyStreak(), OverHeal()], name="Player")  
+        super().__init__(base_damage=1, health=1, armor=0, crit_chance=0, crit_multiplier=0, passives = [LuckyStreak()], name="Player")  
 
         self.recalc_stats()
         self.current_health = self.max_health
@@ -88,22 +88,33 @@ class Player(BaseCharacter):
             self.double_strike_chance += 10  # 10% chance to attack twice
         elif self.char_class == "Vampire":
             self.bonus_health += 10  # +10% health
-            self.life_steal = 2  # 10% life steal 
+            self.life_steal = .1  # 10% life steal 
 
     def add_passive(self, passive):
         # Check if we already have this passive type
         for existing_passive in self.passives:
             if type(existing_passive) == type(passive):
-                return
+                return False
 
         # check if passive return true or false
         passive_result = passive.on_entity_apply_hook(self)
         if passive_result:
             self.passives.append(passive)
-            passive.on_entity_apply_hook(self)  # Apply it immediately	         
+            print(f"Successfully added passive: {passive.name}")
+            return True
+        return False
+
+    def remove_passive(self, passive):
+        # check if passives exists and then if passives false remove
+        for existing_passive in self.passives:
+            if type(existing_passive) == type(passive):
+                passive_result = passive.on_entity_apply_hook(self)
+                if not passive_result:
+                    self.passives.remove(passive)
 
     def check_for_passives(self):
         for passive in passive_list:
+            self.remove_passive(passive)
             self.add_passive(passive)
  
     def recalc_stats(self):
@@ -127,7 +138,7 @@ class Player(BaseCharacter):
             if self.double_strike_chance > 100:
                 self.double_strike_chance = 100
         elif self.char_class == "Vampire":
-            self.life_steal += 0.1 + (0.02 * self.level)
+            self.life_steal = round(0.1 + (0.02 * self.level), 2)
 
         # reset player-addons because passive might change it to higher values
         self.max_heal = self.max_health

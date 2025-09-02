@@ -11,8 +11,7 @@ debug_mode = False
 player = None
 
 # next time for me
-# 1. expand items and maybe shop (mostly done)
-# 2. add more passives and maybe abilities
+# add a way for a player to get passives
 
 def clear():
     os.system("cls" if os.name == "nt" else "clear")
@@ -186,19 +185,24 @@ def combat(player, monster):
                         else:
                             print(f"{entity.name}'s {colored(f'{passive.name}', 'magenta')} spreads to you!")
                 else:
-                    pass
-            
-        
+                    if entity.name == "Player":
+                        result = passive.on_combat_hook(entity)
+             
         return modified_damage
+    
+    def apply_stat_passives(entity):
+        entity.check_for_passives()
+        print("test11123132")
 
     while player.current_health > 0 and monster.current_health > 0:
-        print(player.consecutive_hits)
         print(f"\n--- Combat Turn {turn} ---")
 
         # Display DOT effects
         player_dots = player.dot_manager.get_dot_info()
         monster_dots = monster.dot_manager.get_dot_info()
         
+        apply_stat_passives(player)
+
         health_display = f"You'r Health: {colored(round(player.current_health, 2), 'green')}"
         if player_dots:
             health_display += f" [{colored(player_dots, 'red')}]"
@@ -229,6 +233,7 @@ def combat(player, monster):
                 # check for passive CAP 5
                 player.consecutive_hits = min(player.consecutive_hits + 1, 5)
             else:
+                player.consecutive_hits = 0
                 print(f"You deal {colored(damage, 'yellow')} damage.")
 
             if player.char_class == "Vampire" or player.life_steal != 0:
@@ -255,6 +260,7 @@ def combat(player, monster):
         elif choice == "2":
             print("You brace yourself, halving the next attack.")
             is_defending = True
+            player.consecutive_hits = 0
             if player.char_class == "Mage":
                 player.mana += 2
             else:
@@ -266,6 +272,7 @@ def combat(player, monster):
                 # boost damage based on multiplier for mage class
                 damage = damage * player.overcharge_boost
                 monster.current_health -= damage
+                player.consecutive_hits = 0
                 print(f"You unleash an {colored('MEGA Overcharge Attack!', 'cyan')} dealing {colored(damage, 'red')} damage!")
             else:
                 if player.mana >= 4:
@@ -286,9 +293,12 @@ def combat(player, monster):
                 else:
                     print(f"You Heal {colored(round(heal_amount, 2), 'green')} health!")
         elif choice == "4":
-            print("test")
             player_inventory_menu(player, monster)
-
+        elif choice == "5" and debug_mode:
+            # update values for debuggind
+            print("[DEBUG] Player Stats:", vars(player))
+            print("\n[DEBUG] Monster Stats:", vars(monster))
+            continue
         
         # Apply DOTs to monster
         if monster.dot_manager.active_dots:
@@ -395,11 +405,11 @@ def monster_encounter(player):
     ml_bossN = ["Draven", "Morvak", "Ashborn"]
     hl_bossN = ["Kaelthar", "Vorrak", "Eldros"]
 
-    room_scale = player.room * 1.2  # scaling factor for the room
+    room_scale = player.room * 1.1  # scaling factor for the room
 
     base_damage     = round((13 * (player.level * .7)) + room_scale, 2)
     health          = round((140 * player.level + player.base_damage) + room_scale, 2)
-    armor           = round((3 + player.level / 2) + room_scale, 2)
+    armor           = round((4 + player.level / 2), 2)
     crit_chance     = round(1.5 + (0.2 * player.level), 2)
     crit_multiplier = round(1 + (0.2 * player.level), 2)
     if crit_multiplier > 3:
@@ -437,6 +447,7 @@ def monster_encounter(player):
         monster_name = random.choice(ml_monsterN)
 
         if player.level == 25:
+            monster_name = random.choice(ml_bossN)
             ml_monster = Monster(
             base_damage=base_damage,
             health=health,
@@ -463,6 +474,7 @@ def monster_encounter(player):
         monster_name = random.choice(hl_monsterN)
 
         if player == 50:
+            monster_name = random.choice(hl_bossN)
             hl_monster = Monster(
                 base_damage=base_damage,
                 health=health,
@@ -495,6 +507,9 @@ def game_loop():
     if player is None:
         player = CreateCharacter()  
         print("Character created! Let the adventure begin!\n")
+
+    # checks if passives should be removed after a combat
+    player.check_for_passives()
 
     def room_create(player):
         print(f"\nYou are in room {player.room}.")
@@ -631,7 +646,7 @@ def game_loop():
             print(f"You have defeated the {monster.name}!")
             if debug_mode:
                 # In debug mode, give more experience for testing
-                exp_gain = 20 + (10 * player.level)
+                exp_gain = 20 + (10 * player.level) * 10
             else:
                 # Normal experience gain
                 exp_gain = 20 + (20 * player.level)

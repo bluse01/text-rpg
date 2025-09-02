@@ -83,6 +83,15 @@ class LuckyStreak(Passive):
             dec = f"Each critical strike landed gain +10% critical strike chance."
         )
 
-    def on_combat_hook(self, damage = None):
-        print("test")
-        # WP
+    # has a synergy with overcrit
+    def on_combat_hook(self, entity):
+        try:
+            if entity.consecutive_hits != 0:
+                # increese by consecutive_hits 50%
+                entity.crit_chance = entity.crit_chance * (1 + (entity.consecutive_hits * .5))
+            else:
+                print("Passive luckystreak value error")
+
+            return True
+        except AttributeError:
+            return False
